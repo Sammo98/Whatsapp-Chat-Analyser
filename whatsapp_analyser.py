@@ -13,26 +13,16 @@ import seaborn as sns
 import matplotlib.dates as mdates
 import datetime
 
-
 def make_dataframe(): # Function to make an empty data frame
-    global df # Make global variable
-    df = pd.DataFrame(columns=['Date',"Name","Message"]) # Assign empty pandas data frame to df
     
-make_dataframe() # Run function
-
-
+    return pd.DataFrame(columns=['Date',"Name","Message"]) # Assign empty pandas data frame to df
+    
 def make_message_list(filename): # Function to make list of messages from whatsapp.txt file
 
     f = open(filename, 'r') # open file
+    messages = f.readlines() # read .txt file in lines into messages variables
+    return messages
     
-    global messages # global variable for messages
-    
-    messages = f.readlines() # read .txt file in lines into messages variabls
-    
-make_message_list("") # Run function on text file - pass whatsapp.txt filename as a string into this function
-
-
-
 def dates_to_dataframe(df,messages): # Function to get dates from messages and add to dataframe
     
     date_regex = "[0-9]{2}/[0-9]{2}/[0-9]{4}" # regex for dd/mm/yyyy
@@ -47,10 +37,6 @@ def dates_to_dataframe(df,messages): # Function to get dates from messages and a
             dates_list.append("N/A") # Else Append N/A (Handling for spotify song sharing which counts as own message)
       
     df["Date"] = dates_list # Add dates list to df
-        
-dates_to_dataframe(df,messages) # Run Function
-
-
 
 def names_to_dataframe(df,messages): # Function to get name of messager from messages and add to data frame
     
@@ -67,10 +53,7 @@ def names_to_dataframe(df,messages): # Function to get name of messager from mes
             
     df["Name"] = names_list # Add names list to df
 
-names_to_dataframe(df,messages) # Run Function
-
-
-def message_to_dataframe(df,messages):
+def message_to_dataframe(df,messages): # Function to add the message to the data frame
     
     end_of_name_regex = "[A-Z]{1}[a-z]+ [A-Z]{1}[a-z]+: " # Regex for name and colon (i.e end span == message start)
     
@@ -88,9 +71,6 @@ def message_to_dataframe(df,messages):
             
     df["Message"] = message_list # Add Message to df
 
-message_to_dataframe(df,messages) # Run Function
-
-
 def split_per_person(df): # Function to create two data frames, one for each person
 
     person_1 = df["Name"].iloc[0] # Set string variable as the name of the person to first send a message
@@ -100,14 +80,19 @@ def split_per_person(df): # Function to create two data frames, one for each per
 
     return df_person1, df_person2
 
-df_person1, df_person2 = split_per_person(df) # Run Function
+"""Please pass your exported whatsapp chat filename to the make_message_list function - e.g:
+messages = make_message_list("whatsapp_chat.txt")"""
 
+messages = make_message_list() # Make Message List from .txt file 
+df = make_dataframe() # Create Empty Data Frame with colnames "Date", "Name", "Message"
+dates_to_dataframe(df,messages) # Add Dates to dataframe
+names_to_dataframe(df,messages) # Add names to dataframe
+message_to_dataframe(df,messages) # Add messages to data frame
+df_person1, df_person2 = split_per_person(df) # Create a data frame for each person
 
+"""Make Word Clouds from top 100 most used words"""
 
-"""Data Analysis from messages - Word Clouds and Time Series (Rolling Average)"""
-
-
-def top_words_wordcloud(df): # Create lists and word:wordcount dictionary for analysis - inc. wordclouds
+def top_words_wordcloud(df, filename): # Create lists and word:wordcount dictionary for analysis - inc. wordclouds
     
     sw = stopwords.words('english') # Create stopwords list
     punc = list(punctuation) # Create Punctuation list
@@ -133,45 +118,19 @@ def top_words_wordcloud(df): # Create lists and word:wordcount dictionary for an
     plt.axis("off")
     plt.show()
 
+    wc.to_file(filename)
 
-top_words_wordcloud(df_person1) # Run Function for person 1
-top_words_wordcloud(df_person2) # Run Function for person 2
+top_words_wordcloud(df_person1, "person1_wordcloud.png") # Run Function for person 1
+top_words_wordcloud(df_person2, "person2_wordcloud.png") # Run Function for person 2
 
-"""Time Series"""
+"""Make Time Series (Rolling Average) from original data frame"""
 
 df['Date'] = pd.to_datetime(df['Date'], errors = 'coerce', format='%d/%m/%Y', dayfirst = True) # Turn Date to DateTime Format
-
 df = df.dropna() # Drop any N/A i.e spotify
-
 df.index = pd.DatetimeIndex(df["Date"]) # Set Index to Date
-
 df = df.drop(columns = ["Date"]) # Remove Date Column as date as index exists
-
 df_plot = pd.DataFrame(columns=['Count',"Rolling Avg"]) # Create New data Frame with Columns for message count per day and rolling avg
-
 df_plot["Count"] = df["Message"].groupby(df.index.date).count() # Count messages per day by date index
-
 df_plot["Rolling Avg"] = df_plot.Count.rolling(7).mean().shift(-3) # Calculate rolling 7-day average
-
-start = pd.to_datetime("2019-10-25").date() # Create start date and create end date for specific date range
-end = pd.to_datetime("2019-10-30").date()
-
-df_plot.loc[start:end] # Subset Data frame by start and end date
-
 fig, ax = plt.subplots(figsize=(18, 8)) # Create fig, ax
-
-df_test["Rolling Avg"].plot(ax=ax) # Plot rolling average
-
-style = dict(size=10, color='gray') # Style
-
-"""Mean and Max sent messages"""
-
-def mean_max(df): # Function to return the mean and max messages sent from a day
-    
-    mean_sent = df["Count"].mean()
-    max_sent = df["Count"].max()
-    
-    print (f"In the last year, we have averaged {mean_sent} messages a day, and the most sent in one day was {max_sent}")
-
-mean_max(df_plot) 
-
+df_plot["Rolling Avg"].plot(ax=ax) # Plot rolling average
